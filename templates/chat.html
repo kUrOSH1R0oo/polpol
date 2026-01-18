@@ -1,0 +1,704 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BSIT 2-1 Chatroom</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background-color: #1a1a1a;
+            color: #33ff33;
+            font-family: 'Courier New', monospace;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* Terminal container */
+        .terminal {
+            height: 100vh;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Terminal header */
+        .terminal-header {
+            border-bottom: 2px solid #33ff33;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+        }
+
+        .terminal-title {
+            font-size: 1.2em;
+            font-weight: bold;
+            text-shadow: 0 0 10px #33ff33;
+        }
+
+        .terminal-subtitle {
+            color: #66ff66;
+            font-size: 0.9em;
+        }
+
+        /* Terminal content */
+        .terminal-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 10px;
+            background-color: rgba(0, 0, 0, 0.5);
+            border: 1px solid #33ff33;
+            border-radius: 5px;
+            margin-bottom: 10px;
+        }
+
+        /* Terminal line styles */
+        .line {
+            margin-bottom: 8px;
+            word-wrap: break-word;
+            line-height: 1.4;
+        }
+
+        .prompt {
+            color: #ffff33;
+            font-weight: bold;
+        }
+
+        .input-line {
+            color: #33ff33;
+        }
+
+        .user {
+            color: #3399ff;
+            font-weight: bold;
+        }
+
+        .system {
+            color: #ff6633;
+            font-style: italic;
+        }
+
+        .warning {
+            color: #ff3333;
+            font-weight: bold;
+        }
+
+        .timestamp {
+            color: #888;
+            font-size: 0.8em;
+            margin-right: 10px;
+        }
+
+        .message {
+            color: #ffffff;
+        }
+
+        .private {
+            color: #ff33ff;
+            font-weight: bold;
+            animation: blink 1s infinite;
+        }
+
+        /* Input area */
+        .input-area {
+            display: flex;
+            align-items: center;
+            padding: 10px;
+            background-color: rgba(0, 0, 0, 0.7);
+            border: 1px solid #33ff33;
+            border-radius: 5px;
+        }
+
+        .input-prompt {
+            color: #ffff33;
+            font-weight: bold;
+            margin-right: 10px;
+            white-space: nowrap;
+        }
+
+        #message-input {
+            background: transparent;
+            border: none;
+            color: #33ff33;
+            font-family: 'Courier New', monospace;
+            font-size: 1em;
+            width: 100%;
+            outline: none;
+            caret-color: #33ff33;
+        }
+
+        /* Username modal */
+        #username-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.9);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .modal-content {
+            background-color: #1a1a1a;
+            border: 2px solid #33ff33;
+            border-radius: 5px;
+            padding: 30px;
+            width: 90%;
+            max-width: 500px;
+        }
+
+        .modal-title {
+            color: #33ff33;
+            text-align: center;
+            margin-bottom: 20px;
+            font-size: 1.5em;
+        }
+
+        .username-form {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .form-label {
+            color: #66ff66;
+        }
+
+        #username-input {
+            background: transparent;
+            border: 1px solid #33ff33;
+            color: #33ff33;
+            padding: 10px;
+            font-family: 'Courier New', monospace;
+            font-size: 1em;
+            border-radius: 3px;
+        }
+
+        .form-hint {
+            color: #888;
+            font-size: 0.9em;
+            font-style: italic;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+        }
+
+        .terminal-btn {
+            background: transparent;
+            border: 1px solid #33ff33;
+            color: #33ff33;
+            padding: 10px 20px;
+            font-family: 'Courier New', monospace;
+            cursor: pointer;
+            border-radius: 3px;
+            transition: all 0.3s;
+        }
+
+        .terminal-btn:hover {
+            background-color: #33ff33;
+            color: #1a1a1a;
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar {
+            width: 10px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #1a1a1a;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #33ff33;
+            border-radius: 5px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #66ff66;
+        }
+
+        /* Blinking animation for private messages */
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        /* Responsive design */
+        @media (max-width: 768px) {
+            .terminal {
+                padding: 10px;
+            }
+            
+            .modal-content {
+                padding: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Username Modal -->
+    <div id="username-modal">
+        <div class="modal-content">
+            <div class="modal-title">BSIT 2-1 Identity Request</div>
+            <form class="username-form" id="username-form">
+                <div class="form-group">
+                    <label class="form-label" for="username-input">ENTER YOUR CALLSIGN:</label>
+                    <input type="text" id="username-input" 
+                           placeholder="e.g., Swift_Fox_123" 
+                           maxlength="32"
+                           required
+                           autocomplete="off"
+                           autofocus>
+                    <div class="form-hint">Enter your callsign. Or we will get mad.</div>
+                </div>
+                <div class="button-group">
+                    <button type="submit" class="terminal-btn">CONNECT</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Terminal Interface -->
+    <div class="terminal" style="display: none;">
+        <div class="terminal-header">
+            <div class="terminal-title">BSIT 2-1 Chatroom</div>
+            <div class="terminal-subtitle">The so so ganda ganda chatroom of BSIT 2-1 | Users Online: <span id="user-count">1</span></div>
+        </div>
+        
+        <div class="terminal-content" id="chat-content">
+            <!-- Chat will be loaded dynamically via WebSocket -->
+        </div>
+        
+        <!--
+Sk5ORk9SU1ZLVVpGS1IyR0pWTUZDVjJUSVpIRUVUQ0hJVVpVR1MyT0dWRlZPVjJXS1JCRTJUU0VJ
+WktUS1EyT0pOTkVRUjJYS1JGVlFTMktHVkRFMk0yREtORlRLUzJYSzVHVVlVMk5KWkJWT1dLV0dO
+QlVZUVNWSVZFVk1VMllKNUhESVIySktaSlVPVDJPSkpEVlNXU0RLUkZVVVMyWUlGS0VXV0NPSlpI
+RU1UMjJKUkhFV1dTTUtaRFRHVTJQSlpCRVVSQ0hLVktGQ1MyMks1TUZDTkpTSlpEVU1VMkdLRk1U
+RVJTSUlaRlVLTVJTR05JVVVRU01JWkdURVJDTUpOTkVJVktWR1ZDRUVTS1ZMRkxFV1ZTVEs1RkVV
+TktHSk1aREVNU1BKSkpWTVQyVEtOREVXUlNYSVpLVktNMkNJNURGU1JTVktaSkZHVDJTS0ZMRTJU
+S0xHSkVUS1NTV0tFMkVHVTJOSkpMVU1WS1hJTktVV1dTVEk0M0ZTUzJISlpIRElSU1BHTkpURVRT
+U0pSREVTTTJER0pGVktXU0lJNUdVV1YySElaREVRUktXS1JGVVVXU01LWkdUTVUyWEtCRkU0UlNQ
+R1FaVlNTMktLWktFV1ZTVExCSEZNUkNHSkZLVklUS1BJSkVWTVRLV0dOS1UyUlNLS1JCVklVMllK
+VkhFR1YySktaS0VHU0syTEZDVE1WU1VKWklFRVdTVkdRWlVHVjJQSlpGVk9WMjJJTk1VV1NTWEla
+R1U0VTJYSkUyVlNSMkRLWkpWUVNLV0dSREVPTTJES05GVlVSMlZKVTJFR1ZLTExKTFVNVktaSlJD
+RTRUS1pLWklWVVEySEpWSkZLVlNQS0pGRktVQ0tKUkRWT1dTQ0tGRlZTV1NGSk0zRUdWMk1JSkpV
+S05TV0tOTFVZU1NNS1pKVk1RMlBKWTJVWVJTTkdOQlZTVEtXSU5MRktNUlNKWkZWVVRLVUlWTEVX
+VjJPSUpMRk1TSlRJTkZVV1ZTTUk1TFZVUTJaSlZDVlVSSlVKWkJWT1RTU0tOQ1ZPVlNTS0pHVkVX
+U1dJVVpVR01TTEdWSlZPV0tYS05ERVdXU1hJWkdWU1MyV0paTEVTV0NSS1pDRTZTMjJLVkxFS1RK
+U0tOR0VFVFNHSjQyVUlRU0xKRk1WT1NLV0pOSlU0VVNPSVUzRk1WQ09KTkZFS1ZTTkdOR0ZLVFJW
+S0ZLVVdUS0VMQkdVNFJDR0tWTEVXVjJMTEpIRUlSMlhLTkxFWVNTUktaQ1ZNVTJMSjVGRVFSU0xK
+WkZWSVRLS0pORFZPTlNUSzVFVkVSQ0hLNUtGR1IyTktJWkVNUlpUS05IVVdVU1NJVkZWT1UyMkpS
+REZNVlNWS01aRk1TSzJMRkNVMlYyVEk1RkZVVENYSU0zRklUS0xHVkdFS1QyTkpSTUVXV1NXS1JB
+VE1RMlVKWkpFNFJTUEtWSkZJUzJLR05ERVdWU0RJSklFRVRDRUlOTEZHV1NNSkpDRU1USlNKUkJF
+T1RTQ0lVMkZNVTJISk5ORVVWMkhKVkZVV1NKVktGS0VPV1NES1pHVU1WU1ZLVkxERVZTT0tZWkVP
+UTJVSk5EVTRVU01JWkhURU1TUEpNMlVZUlNKS0pKVVFTMlNLNURWQ01SU0s1RVRLVENJSVZLVkdW
+S0pMSkdFTVRLTkdORVVPU1NPSVpHVk9WQ1lKTkhFWVZLVktOQ0VHU0sySkJDVElWQ0xLWkhVRVIy
+V0pVWlVVVVNISUpKRUlRMlNKUk5FV1RTWUlWS1ZJTVNZSkZORU1TQ0RLWkZGQ1MyVkxGTFVPVlNU
+S05GVEtUU0ZKRktGSVRLTExKTFZRVUtYSk5LVVdXU1RJUkFWU1MySEpKRERJUlNIR0pKVUdUQ0tJ
+NUtVNlZDTUxGRlZTV1NJS0ZMREVUMk9LWkRFS1UyWkpORFU0UVNWSTVCVTJNU0RKSkRFWVJTSktK
+S0VZUzJKTEpERUtVUlRJUkVWTVYyR0tGTVZHVlNNSkpNVU1US05JTkxVVVRTSEtaR1ZPVkNTSk5G
+Rk9XQ0pLWkJVNFRTTkdKTEZDVjJNSk5GRlVXU1dKTkdWR1MyUEpKSkZLVUtVS05MVTJSS1pMQkFW
+RU1SU0pGSkVJUlNQTEVaRk9TUzJHSkxVT1VTS0taRlU0VENGSlZMVkdTS0xMRk5FUVNLVkdKSlVP
+UlNKTEJJVk1NMk1KVkpGS1JKU0pWS0ZTVFNDSlJEVlNWMlRKUkZWS1dLV0lWTEZHV0NPSlpNVU9W
+MlVKTkNVU1dTRUlaRlZNTTJVSTVMRVdWQ0RLNUdGU1MyT0taTEZLVlJTS05EVTRTU0dKRkxGR1ZL
+SkxKRkZNUktOSk5MVTZTU01JNU1WT1UyWUpORkVXV0NCS1pCVk9TSzJKUkRFMlZDTEs1RkVVVENY
+STVKRVlSS01JSkpFTVVLVktOTUVZUlNYSVpHVlNTMlRJNURFU1dDUks1SlVLUzJLS1ZDVEVWUlNL
+TkVUS1MySExFWkVHVUNMTEZNVktWS1NLTktFNFRSVUk1QlZNVkNOSlJFVEdSU1ZLWkpWTVVDQ0pK
+REUyVktVS1ZHVU1RMlVKTktGR1YyT0xKQkVNUjJXS1JHVVlTU1dJNUZWRU1TUEo1SkVXUlpVS1JL
+RVdTMktLNUxFS05DTEtaSEU0VENJSjVNVVdSMk1KSk5GTVNaVEtOSFVXVFNLSTRaREtRU1dKTkpG
+T1JTVkdJWkZPVFNTSVpFRUtWUlRKTkVVVVRTR0pWTEZJVUtKS0pHRU9XS1dKUk1VV1NTWEtVMkZF
+UzJTSlpMRUlSU0hMRkpVT1MyV0dSREUyVlJUS1ZIRTRTU0VJVktGSVUyS0dWR0VPU0tWS1JCVVNW
+U1pKQkFWTVZDTEpKTkVVVkpVS1pKVEVUMktKTkxWT1ZDVEtWRkZNVjJGSlZHVEVXU1FKSkVFT1Yy
+V0pORFVZU1NNSVUyRk1NMkpKTkxFWVJLTEs1S0VTUzIySlJERktWUlNLNUZWVVNDSUpOS1RHVFNQ
+SUpLVk1SSlNHSk5GQVNTTUlaSFUyUkNZSkpMRVlSMlpLWkpVNFRDQ0lSRFZHVktUS1ZFVlVUQ0dL
+TVpERU1TTUpKRFZLVEtWS05NRVlTU0RMQkVWS01TWEpaSkZTU0NUS1pCVk9US1NMQkxFMlRLTUlW
+RkVFUzJIS1ZLRkdXQ0xKRk5GTVJLWElOTkVXVVNCTEJJVk1WQ01JNUxFWVZTUEdOR0ZTUzJTSkpD
+RUtNU0RMQkZWVVRDWUpGTVVXV1NMR1ZDVlFVS1dKUkhVV1NTSUlaR1RHVTJESkkyVVdWMlpLVkpW
+UVMySkxGTFVTTkNUSzVGVkVSQ0dKTktFV1YyUElKSEVNVFpUS1JJVVNOS01LVkhWRVRDWkpOSEZP
+UkpVS1pGVk9TMjJMRkNWT1YyVElWRkVVUkNWR1FaVUdSMlBKSkVGTVRLVUtOTVVXU1NXTEJBVklV
+MlhKWkhGR1JDQktaRkZFUzJXR1JERVdNUlRJVkZWVVVTRkpWTFZHV0NMTEpMRk1US1RHSkxVU1dT
+S0laSVZTTVNHSkpGRk1WSlNLWkpVV1VDR0pSRFRFVEtLS0ZGVktXU0ZKVkhGR1YyT0paSEVNVDJX
+S0pLRVdSS1pJWkdUR1FaU0pKSEVVVktOS1ZKVlVUS09JUktVMlZSVElORlZVUlNGS05MRkdXQ1BL
+SklWT1NKVEpOTFU2VFNMSTQyRk1WQ0NKTkVWVVZTRks1QlZNVFNXR1JFRTZWU0NLSkdWRVRDV0tO
+R1RHU0tPSUpEVk9WMlhLTkVFV1VTV0s1SVRJTVNWSTVERkdSS1JMSkZVU1NLMkpaREUyVVNNS0ZI
+VlVUU0dKTkxWSVRDTkpaR0VLTkJVS05NRTRWUlNJNUpWTVUyWEpZMlRHVlNOSlZLRktUU09LSkNF
+R1YyVEpCRlU0VEtJSUZLVklRMk9LSkhFT1EyWEpOTUU2VVJUSzVCVkVWQ01LQkJFWVZaVUs1S0Uy
+UzJKTEZFRUNVMkxMSkhFNFUySEdaTVVXVjJNSVkyRU1SWlRLTVpFWVFTTUk1TVZHVTJSSlJDVlVT
+Q0hHWkJWR1RTTkdKTEUyVlJUSlpFVlVTMkdJVkxVR1EyTElaR0VNVFpWSVJCRVdUS1pLVTJGTU1T
+WEpaSkZPUjJWS1ZLRVlUMkNKQkxFV00yTUtSSUVFUjJVSU0yRUdTU05KWkJWS05DV0pOSEVXVlNa
+SVpIVk1SQ05KTk5FWVZTTkdOQlRFU0sySkJERTJNU0VJSkZVVVRDSUlFM0ZHVjJISUpGVklTMlZH
+SkxVVVdTMks1RFZFVkNGSk0yVVVSQ0hMSkJGT1MyMktaQ1ZLVFNESzVIRTJNU1dKNUtWR1dLT0tK
+RlVPUktTR05FVVlRU05LNUxWTVUyTUpOS1ZTVlNGSzVCVTRTMlNJSkRWU1ZTVUpaSUVFTktHSlVa
+VVlXS0tHVkpFS1RLVEtSS0VXU1NXSVpDVk9SQ0NJNURFTVJTSks1RlZNVENLSlJEVVdNMkRLNUhV
+NFNTSExGTFZHV0NOS1pMVU1WS1RKTkxVU05DWktSRVZNU1NTSkpORUtSU0pHSVpVU1NSVkpSRFRJ
+VUtUTEZHRU1WU1dKVTJURVQySkxKR1ZRVTJaR0pERTZVU0tLNUJUTVUyREk1TEVZUktQR1ZDRklT
+MlpMRkxGS1VTVExCSEZFVFNHSlZNVVlUQ0hLWkJVTVZLU0tNWkU0VFNNSVJCVk1WQ1ZKVkpFSVdD
+SktZWkU0U0tTSk5NRkNWU1RLVkZFU1dLSEk1R1ZHUjJLSUpGRk9XSlNJTkxVMlNTTEk1TVZNVTJX
+SlpIRVlTQ05LUkZVT1QyQ0pSTEU2TTJNS1ZIRTRTU0VJRkhFV1MyTExKQ0ZJUVpVR05CRVNWS1pK
+QklWS00yTEpORkUyUlNOR05GVTZSMlNKVkxFU1VTVUtSRlZTV1NGR1JKVVdWU09LWk1VTVIyMkpS
+R1VZU1NWSVpHVEVVMkRKTTJWR1JDRktaSlVRVENLSVZDVTJWSlRJTkhFMk1TV0tGTEZJUzJKSkpJ
+VktNU1NLUkNVNlNTTUk0MkZVUTJZSk5GRk9TQ0JLNUpWT1NLMktWRUVPVlNTS0ZEVU1UQ1dKVkxF
+R1IyTklaRkVJUjJVSlJNVVdXS1pJWktWSU0yRUpaTEVJUktQS1pLRTJTUzJKUkxFS1ZTTUtCRFVN
+VENIR0kyVUdWQ0xJVk1WS01SV0pOTFU0VFNPSTVLVklTU1RKTkZFU1ZTTkdOQlZNUjJHS0pMRTJN
+MkRMQkdVTVJDRkdRWkZHVFNMTEpMVUlTMldJUkdVMlVTRUs1QlZNVTJMSjVIRVVSMlZLUkpWT1NT
+V0taREUyTlNUTEpGVkVSQ0dLVk5FV1IyTktKR1ZPUTJTS1JJVTRVU1JLUkRWQ1UyMkpOTkZPUlNO
+TEZGVkdSMktKSkRFNlZTRUpWSEZFUzJISVZKREVVMktHVkdFT1dLWEtSTFVVVlNFSVpGVE1WQ0VK
+RkxFTVJKV0taS0VZUzJaR0pMRTJWUzJLWkZUS1RDRUlWSlZHUjJMSlpMVUtOQ1dKTkxWQVNTTUlW
+RVZNVTJYSlJGRkNWU0ZLWkpVT1QyS0tOQ1U2TktESjVHVVVRMllJRkxVR1YySktKQ0VNVDJXSUpK
+VVNXU0VLWkRUR1EyWEpaREVVUjJYSzVKVlFTMjJMQkVFQ1ZSU0tSRVZVU1NHSjVMREdUS0tKSkxG
+S01TV0pKTEVPUVNMSVJCVk9VMllKTkpGT1JLVktOQ0VNU0tXSkpERTZWQ01KNUVVVVIyR0tOTEVH
+UzJMR1ZHRktUS1VLUkpVMlNTRUlaR1RFUTJPSTVERU1SU05LWkpWUVQyQ0pCTEVHVEtUS05GVEtU
+U0ZKVk5FSVNLTEpKR1VNUkpVSk5MVTRWS1pJUkZWSVUySEpaSkVXVlNKR05GVU9UU0NKSkNFQ05D
+RExKRlZVVENVSUZIRVdXQ09LSkhFSVRLVktSRlVVV1NPSTVDVk1RMkhKSkhFNFJLSktOSlVZUzJL
+SlJERTJOQ1RLQkZWVVNDR0k1TVVVVkNKSkpERk1US05KTVpFNE5LVElSQlZNVkNUSkpMRVdWMkpL
+WkJWUVNTQ0lKREZDVlNVSlJGVlVNMldLTkxGSVRLUEtKSlZLVDJTS05NRVdXU1hJVktUTVMyWEpN
+MlRJUkpXS1pKVU9TU0tMSkRVT1VTVEdKRlRLVVNGSlZKVkdUS0xMSkJVS1ZLVEdOQ1VTV1NXTEJL
+Vk9VMkhKTk5GS1JKU0taS0ZDVUNHSlJDVTJXU0VHSkZGTVRDRktWTERFVjJPTEpERU1US1pLTkRF
+NlFTWUtaSlRFTVNYSk0yVU9WQ0RLNUpWVVRLT0lOS1RJVlNNSUpJRVVSQ0ZKNUxFSVRLTExKSVZN
+VTJXS05GVVlRU1JLVkdWT1UyWUpWREZNVlNWR0pCVk9TMjJKWkRFNlZSU0laRFZNVENHSkVaVUdN
+U0xKWkpFS1MyWEpRWkVXV1NMSVZKVTJUQ0VJNUZFR1dDUktZWlVXVENLSkpERTZVMkRJTkdVTVRD
+SEs1TEVVVVNMR1ZDRU1WS1dLTk1FNFRTVEk1TFZLVVNSSlJGRUtSU0xLWk5GRVNKVkpSS1UyVTJV
+S1JHVVVOS0ZLVkxERVRTT0xKS1VNVDJXSVJHVVlTU0dLWkRWRVUyTEo1SEVZVjJaS0ZKVlFUS0ZM
+RkVFQ1ZTREs1RVZVVVNZS0ZLRVVVMkxMSkNGTVRaU0dKTFVXU1NSTEJLVEdSQ1JKUkRGT1JTVktN
+WkZRUzIySlpFRVNXU0xKQkhWRVZLSElWSkRFVTJLSUpHRUlSSldJUktFV1dLWktaS1ZPUkNDSkZO
+RVFSU1ZLUkdFNlRTQ0pKTEZLVVNESTVGREtVMkdKNUpWR1NLTktKQ0VPU0pTSk5MVTRUU1lLUkJW
+TVVTU0pORkVFVlNKSlZCRkVTSlZKUkRWT1dTREtSR1VVVjJGS1UyRVdWU09KSkVFT05TV0tSR1VX
+U1NNSVpHVEdWQ0ZKWkhGRVJLTkdSQlVPUzJWTEZMVkNNWlNLWkRVTVRLWUo1S0ZHVjJOS0pGVktN
+U1dLUklVNldTTks1TFZPVTJMSlZMRVlWU0ZLTkdFR1NLMktOREVPVktUS1pIVUVSMldKNFpVR1Yy
+TEdWSlZPTVNWSlJNRVVOS01JWktWTVRDREpOTEU0UkpXS1pCVk9UQ0tHTkxFV00yREdKRlRLUzJY
+SzQyVUlTMk5KSkZWSVNaV0tOTFVXV1NWSTVMVk1TU1RKSkZFV1ZTTkdOR0VTUzJXSlJDVVdVMlNL
+UkZWRVMyRkpVWkRHUktMR1ZFRUtVS1ZLUkhFNlFTTUtVWkZHUTJESkpIRVlSMlhMSkJGS1RLUkxK
+Q1UyTkNUSlpGRUVWMkdLVktFVVUyTEpKR0VNVTJXSU5EVTJSU1NLNU1USVEyWUpOTkVXUktOR0la
+RkdUU05HSk1GQ1ZTTUpaSUVFVUtYSVZKREVTMkpMSkdFT1ZLVUtOTUVXV0syS1ZDVkVRMlhKWkxG
+VVdDUktaS0VZUjJXSlZMRUtNMkVKRkhFRVVTRkpNMkVHVVNMTEpHRlFTS1pKTktFT1JTSUlaSFZN
+TTJNSlZKRVlSMkZLSkdGQ1NSVkpOTFRFTktFS1JGRktXS1dLVkpERVZTT0paRUVNUzJVSk5MRTZR
+U09JWkdWTU0yVUk1REVZUlNQS05KVVNTMldLWkxWQ1ZTVUlKRFVNVENFSkZMRVlUS01KSklWT1NL
+U0tORlU2VFNLSzVMVTRTMlVKSktWU1JDSkdaSlZPVFNPS05DRUNWU1NLSkZVTU5DR0lWTFVJUktL
+R1ZHRktTMk9KUklVV1ZTWExCRVZHTTJFSkZORlNSU1JMSkZVUVNLMktaREVLTTJER0pJRUVTMldK
+NDJFR1ZDTExKRlZJUTJYSk5KRTRVU1RJWkZWSVMyWEpSRkVTUlNUS1laVlNTMjJLTkxWU1ZTVUtS
+RlVVVjJHS1ZMREdSU09LSkhFS1dLV0dKS1VVU0pTSTVFVTJTMjJLQkRFV1IyWEtaSlZLVEtLSk5M
+RktWMkRLNUhFNFUyRUpGS1ZHVjJOS0pHRk1USlRJTVpFVU5LTUlSQVRJUTJLSk5ORVlXQ1JHUVpG
+T1NaVklaREZHV0tMSTVHRVVTMldKVkxGR01TSEpaSEVNUzJYS1JCRVdTU01JVktUS1JDRUpFMlRF
+UjJUS1pKVk9UMkNJWkRFMk0yS0tKRFZFU0tVSU5MRklWS0xKWkxVTVRLVkdKTUVTTktWSVpJVk1U
+Q01KTk5FTVZTSktKS0UyVDJTSTVMRTJWQ1RMQkdVTU5LSExGTERFVjJMR1JNVk9OU1dLUkdFT1FS
+VUlaRFRHUTJMSk0yVVlSMlpHUkNGR1RDR0pOQ1ZLVVpUSVZFVlVTU0lKTkxGSVRLS0pKS1ZNVEtT
+S01aRVdSU01LWkhUTVJDUUpOQ1ZVUlNOR1FaVUdTS1NKWkRFT1dLVUpSRFZNV1NXS01aVUdNU05J
+WkdFT1dLWEtOTUVXVlNXS1UyRk1VMk9KRkpFRVJDSEs1RlZLU1MyTEJMRTJWUlNKTkZFRVMySEtW
+S0ZHVlNOSkpDRU1TWldJTkxFNFVTT0laSFZTTTJPSkZORUlWU0pHTkNFS1MyT0tKQ1UyVjJLS0pG
+VlVWU1hJNDJURVRTTEdWREVRUktVSk5MRVlTU0lLWkdWTVZDUkpaQkVXVjJaS1ZKVlFTMldJUkRF
+Mk5DVExCSEU0TVNHSkZMRklUS01KSkhFTVUyTklNWkVVVFNMSTVNVkdWQ1RKSkxFV1JKVUxGRlZJ
+U1NDSUpDVkNWU1NLTklFRVVLV0pVWkZVVVNMS1pGVU9XS1dLUkZFV1NTWUlWQlRNVTJYSk0yVEVS
+MkRLWkJGRVRDS0pSTEUyTTJESzVGVVVVU0ZKTTJFR1VDTEtaTFVPU0tOSU5IVVdXU09KQkJWS1ZD
+TkpSRkVRVlNOSlZGVVdVQ0dKTkRWU1YyVUtCRlZVUkNWSk0zRVlRU0pMSkhFTVRLWktORFVVU1NO
+SVpHVk1VWlNKVkRFVVJTTktKS0ZHVEtTSVJNRkNWSlNMQkVWS01TSUtWTEZHUktKTEpHRk1TS05L
+TkRVNlVTS0k1TVRHUTJYSlZERk1WS1ZLWkpWVVNaVkdKRUUyV1NDS0pGVVVUQ1dKNFpVR1MyT0pa
+RFZNUzJPSkpJVVdVS1pLWktWTU1TVkpaTEVNUktQTEZKVUtTMktKVkRFNlUyRElORkZFVENIS1ZK
+RkdXQ0xKRk1WS1ZKVkpOTEU0VlNaSVpEVlNTU1JKNUJFWVZTTktKSlZPU1pWS05DRUtWS1RMQkdV
+NFEyWEpGTERFVjJKTEpIRU1TS1dKUkZVU1NTUktaR1ZNVkNSSkZORVlWMlhLUkpWT1RLS0lSRFZT
+VFNMSzVGVElNU1dKNUxER1RDSElaTVZNVEpTR0pKVVlTU1NJWklWSVRDWkpSRkVHVjJKS1FaRklT
+MjJKSkVFU1dKU0laRFZNVENWR0pHVklSQ1FJWkdFT1YyWEtOTUVXVktaS1pHVElVMk9KTkxGR1JT
+SktZWkVTU0tLSlZERTJNUlNLNUdVTVMyVkpVWlVHV0tOS1pDVU1WS1VLTkpVNFVTR0pCSlZNVTJZ
+S0JCRVFWU05LSkpVVVVDQ0pKTFZTVjJUTEJGRk1XQ0dJVkdURVdTTExKSEVPVjJWR0pFRVVWUlZJ
+WktWRVUyWEpaQkVPVlNOR1JDRlVTMjJJUkRVU05TVEpaRlRLUjJZS05LVEdUQ05LSkZFT1JLV0dO
+TVU2VFNOSzVMVk9WQ1lKVklWU1ZTVks1Q0VJU0tXSkJDVE1WS1VKVkVWU01TR0tOR1VHTVNOSVpG
+VktUS1hLTkxVVVdTTklWR1ZPVkNESlJCRktSMlJLNUdERVNLMkdOTEVLVEtUSTVFVlVTQ1dKNFpV
+R1ZDTkpKQlZNVVpXS05MVVdVU0ZLUkJWU1dTVEpGTERJUlNQSzVDRTJUU1NKSkRGQ01TRUlKR0VV
+VENZSTVHVVdXQ0pMSkhFTVRLV0dOR0UyVVNXS1pHVEVNMlJLQkZFV1ZTUEpWRlVRUzJaTEpDVktV
+MkxLSkZWRVJTR0o1TVVVVVNLSkpCRk1TSlRJTVpFU1dTVEtaR1ZLVkNVSlZGRUlSMkpHSkZWR1My
+V0xGREVTVlNUSTVHVTROQ0ZHSkpERVYyTEdWR0ZPVjJXS05KVTJSSzJJWkNUSVEyMkpaSEZFVkNM
+S1JKVk9TMkdHUkRFMk1TVEtORlZNUjJYSzQyRUdXQ01JWkxFS05CVEdKTFVPUlNUSVZKVktUQ05K
+Sk5FV1ZTTktaS0ZDU1NPSlpDVVNVU1VJSkZWVVRDRktVMkZHVUNMR1ZLVU9VMlZLUVpFNFFLMkta
+R1RFTTJGSTVCRVdWQ0RLWkdGU1MyU0taTFVTVlNVSU5FVlVUU0dKNUxGSVRDTExKREZNVEtTS05K
+VVdXU01JWklWVVJDTUpKTEVZUktWR1pGVk9UU1dMRkNVT1ZTVEs1R0VVUzJXSlVaVklVS01KSklW
+SVFaVUlOQ1VZUlNNSTVFVk1NMkVJNURGR1NDTEtWR0UyVENLS1ZEVUdUS0VKVkRWVVRDRkpWTEZH
+VjJLS1pHRUtWSlVHTkNFU1ZTTUlaRVZTVEJTSlpKRVdSU0xHTkdGS1RaVkpKTFZTV1NES1pGVU1W
+MkZHUkxGSVFTUUpKQ0VLVUtXSkpKRTRRU1lLWkdUR1FaU0pGTkVVVjJaS0ZKVk9US0tJUkxFS1ZT
+REs1RVRLTkNHSTVORUdXQ0tMSkNVT1NLU0pKTkVXTktTSTVMVkdVU1dKTk5GTVYySkdVWkZHUjJH
+SlpFRVNWU1VKNUZGVVMySElNWkRHVUtNSVpHVk9WMjJJTktFV1RTRUlaSlRLTVJTSkZORVFSU1JL
+VktFMlQyQ0dWREVXVlJUTEZGRTRVS1dKNUpFWVdTS0dWRlVNUktYSU5MVU9UU1ZJWklWTVUyVkpK
+RkVZVlNGSlZGVk9UQ0dLRktVNlVTVEtSRlVVVlNZSUUyVkdWMk9LSkZFS05TV0pKSlVVVlJVSVpI
+VEdVMlRKSTJVWVJTUEtWSlZBUzIySzVNRkNOQlNKNUVWVVRDR0tGTVRFUlNLTEpGVk1SS1dJTkRV
+U1dTTks1TFZNVTJZSk0yVk9SU1ZLSkpVNlMyMktWREZLV0tLS05GVVVTMkdKTkdVSVJLTEdWRkVJ
+UTJTS1JLRVdXU1dLUkZWS01TWUpGTEVLV0NWS1pLRTRUMlNKSkxFR01TMktaRlRLU1NHS0VaVUdW
+U05KSkNGUVVLWElOTkU0VFNNSVZMVk1TU1NKWkpGVVYyREtKTkZVVFNLSTVMRTJOQ0RJNUZWTVRD
+WUpGR1VJUVNMS1ZNVk1UMlZLUkZVVVdTTEtVWkZNVVpTSkpKRVlWU05LWkdGU1RLU0lSREUyTkNM
+S1JIRkVUU0dJNU1VVVVTTEtWTVZNVEtXSk1aRVNXU0lLWkdWQ1UyVEpOQkVXUkNCS0JFVDI9PT0K
+        -->
+        <div class="input-area">
+            <div class="input-prompt" id="current-user-prompt"></div>
+            <input type="text" id="message-input" 
+                   placeholder="Type your message (max 500 chars). Try typing 'flagme' for a surprise..." 
+                   maxlength="500"
+                   autocomplete="off">
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const modal = document.getElementById('username-modal');
+            const terminal = document.querySelector('.terminal');
+            const usernameForm = document.getElementById('username-form');
+            const usernameInput = document.getElementById('username-input');
+            const messageInput = document.getElementById('message-input');
+            const chatContent = document.getElementById('chat-content');
+            const userCountElement = document.getElementById('user-count');
+            const currentUserPrompt = document.getElementById('current-user-prompt');
+            
+            let socket = null;
+            let currentUsername = '';
+            let userCount = 1;
+
+            // Handle username submission
+            usernameForm.addEventListener('submit', async function(e) {
+                e.preventDefault();
+                
+                const username = usernameInput.value.trim();
+                
+                try {
+                    const response = await fetch('/', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/x-www-form-urlencoded',
+                        },
+                        body: `username=${encodeURIComponent(username)}`
+                    });
+                    
+                    if (response.ok) {
+                        // Username will be set in session, we'll use it from the server
+                        modal.style.display = 'none';
+                        terminal.style.display = 'flex';
+                        
+                        // Initialize socket connection - username will come from server
+                        initializeSocket();
+                        messageInput.focus();
+                    }
+                } catch (error) {
+                    console.error('Error setting username:', error);
+                    alert('Connection error. Please refresh and try again.');
+                }
+            });
+
+            // Initialize socket connection
+            function initializeSocket() {
+                socket = io();
+                
+                // Handle connection
+                socket.on('connect', function() {
+                    addSystemMessage('Connected to chat server...');
+                    addWarningMessage('WARNING: This chat is not persistent. If you refresh the page, all messages will be lost.');
+                    addSystemMessage('Type "flagme" (without quotes) to get a special reward');
+                });
+                
+                // Handle disconnection
+                socket.on('disconnect', function() {
+                    addSystemMessage('Disconnected from server');
+                });
+                
+                // Handle incoming chat messages
+                socket.on('chat', function(data) {
+                    addChatMessage(data.user, data.msg, data.time);
+                });
+                
+                // Handle system messages
+                socket.on('system', function(data) {
+                    addSystemMessage(data.msg, data.time);
+                    updateUserCount(data.msg);
+                });
+                
+                // Handle private messages (like flag)
+                socket.on('private', function(data) {
+                    addPrivateMessage(data.msg, data.time);
+                });
+            }
+
+            // Add chat message to display
+            function addChatMessage(user, message, timestamp) {
+                const line = document.createElement('div');
+                line.className = 'line';
+                
+                const timeStr = formatTimestamp(timestamp);
+                
+                line.innerHTML = `
+                    <span class="timestamp">[${timeStr}]</span>
+                    <span class="prompt">&gt;</span>
+                    <span class="user">${escapeHtml(user)}:</span>
+                    <span class="message">${escapeHtml(message)}</span>
+                `;
+                
+                chatContent.appendChild(line);
+                scrollToBottom();
+                
+                // Update current user prompt if this is our message
+                if (user === currentUsername && currentUserPrompt.textContent === '') {
+                    currentUserPrompt.textContent = `${currentUsername}@chat:~$`;
+                }
+            }
+            
+            // Add system message to display
+            function addSystemMessage(message, timestamp) {
+                const line = document.createElement('div');
+                line.className = 'line';
+                
+                const timeStr = formatTimestamp(timestamp);
+                
+                line.innerHTML = `
+                    <span class="timestamp">[${timeStr}]</span>
+                    <span class="system">[SYSTEM] ${escapeHtml(message)}</span>
+                `;
+                
+                chatContent.appendChild(line);
+                scrollToBottom();
+                
+                // Check if this is a join message for our user
+                if (message.includes('joined the chat')) {
+                    const username = message.split(' joined')[0];
+                    currentUsername = username;
+                    currentUserPrompt.textContent = `${username}@chat:~$`;
+                }
+            }
+            
+            // Add warning message to display
+            function addWarningMessage(message, timestamp) {
+                const line = document.createElement('div');
+                line.className = 'line';
+                
+                const timeStr = formatTimestamp(timestamp);
+                
+                line.innerHTML = `
+                    <span class="timestamp">[${timeStr}]</span>
+                    <span class="warning">[WARNING] ${escapeHtml(message)}</span>
+                `;
+                
+                chatContent.appendChild(line);
+                scrollToBottom();
+            }
+            
+            // Add private message (for flag)
+            function addPrivateMessage(message, timestamp) {
+                const line = document.createElement('div');
+                line.className = 'line';
+                
+                const timeStr = formatTimestamp(timestamp);
+                
+                line.innerHTML = `
+                    <span class="timestamp">[${timeStr}]</span>
+                    <span class="prompt">&gt;</span>
+                    <span class="private">[PRIVATE] ${escapeHtml(message)}</span>
+                `;
+                
+                chatContent.appendChild(line);
+                scrollToBottom();
+            }
+            
+            // Format timestamp
+            function formatTimestamp(timestamp) {
+                if (!timestamp) return getCurrentTime();
+                
+                try {
+                    // Handle ISO format from server
+                    if (timestamp.includes('T')) {
+                        return timestamp.slice(0, 19).replace('T', ' ');
+                    }
+                    // Already formatted
+                    return timestamp;
+                } catch (e) {
+                    return getCurrentTime();
+                }
+            }
+            
+            // Update user count from system messages
+            function updateUserCount(message) {
+                if (message.includes('joined')) {
+                    userCount++;
+                } else if (message.includes('left')) {
+                    userCount = Math.max(1, userCount - 1);
+                }
+                userCountElement.textContent = userCount;
+            }
+            
+            // Get current time in HH:MM:SS format
+            function getCurrentTime() {
+                const now = new Date();
+                return now.toTimeString().slice(0, 8);
+            }
+            
+            // Scroll to bottom of chat
+            function scrollToBottom() {
+                chatContent.scrollTop = chatContent.scrollHeight;
+            }
+            
+            // Escape HTML to prevent XSS
+            function escapeHtml(text) {
+                if (text === null || text === undefined) return '';
+                const div = document.createElement('div');
+                div.textContent = text;
+                return div.innerHTML;
+            }
+
+            // Handle message input
+            messageInput.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    const message = messageInput.value.trim();
+                    
+                    if (message && socket) {
+                        // Send message via socket
+                        socket.emit('message', { msg: message });
+                        
+                        // Clear input
+                        messageInput.value = '';
+                    }
+                }
+            });
+            
+            // Focus input when clicking anywhere in terminal
+            terminal.addEventListener('click', function() {
+                messageInput.focus();
+            });
+            
+            // Auto-focus username input on page load
+            usernameInput.focus();
+            
+            // Allow Enter to submit username form
+            usernameInput.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    usernameForm.dispatchEvent(new Event('submit'));
+                }
+            });
+            
+            // Handle escape key in message input to refocus
+            messageInput.addEventListener('keydown', function(e) {
+                if (e.key === 'Escape') {
+                    messageInput.value = '';
+                    messageInput.focus();
+                }
+            });
+            
+            // Show warning if user tries to refresh
+            window.addEventListener('beforeunload', function(e) {
+                if (socket && socket.connected) {
+                    // Optional: You could add a confirmation dialog
+                    // e.preventDefault();
+                    // e.returnValue = 'All chat messages will be lost if you refresh. Are you sure?';
+                }
+            });
+        });
+    </script>
+</body>
+</html>
