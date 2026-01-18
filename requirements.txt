@@ -1,3 +1,6 @@
 pycryptodome
 Flask
 Flask-SocketIO
+gunicorn
+eventlet
+
